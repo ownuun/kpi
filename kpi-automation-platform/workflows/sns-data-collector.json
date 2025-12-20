@@ -1,0 +1,322 @@
+{
+  "name": "SNS Data Collector",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b8c9d1e2-f3a4-5b6c-7d8e-9f0a1b2c3d4e",
+      "name": "Cron Trigger - Daily Midnight",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.POSTIZ_API_URL}}/api/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.POSTIZ_API_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c9d0e1f2-a3b4-5c6d-7e8f-9a0b1c2d3e4f",
+      "name": "Get All Posts from Postiz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        470,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "d0e1f2a3-b4c5-6d7e-8f9a-0b1c2d3e4f5a",
+      "name": "Loop Over Posts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        690,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.POSTIZ_API_URL}}/api/posts/{{$json.id}}/analytics",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.POSTIZ_API_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e1f2a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b",
+      "name": "Get Post Analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        910,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.DATABASE_API_URL}}/api/posts/analytics",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "postId",
+              "value": "={{$json.postId}}"
+            },
+            {
+              "name": "platform",
+              "value": "={{$json.platform}}"
+            },
+            {
+              "name": "impressions",
+              "value": "={{$json.impressions}}"
+            },
+            {
+              "name": "engagement",
+              "value": "={{$json.engagement}}"
+            },
+            {
+              "name": "clicks",
+              "value": "={{$json.clicks}}"
+            },
+            {
+              "name": "shares",
+              "value": "={{$json.shares}}"
+            },
+            {
+              "name": "comments",
+              "value": "={{$json.comments}}"
+            },
+            {
+              "name": "likes",
+              "value": "={{$json.likes}}"
+            },
+            {
+              "name": "collectedAt",
+              "value": "={{$now.toISO()}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f2a3b4c5-d6e7-8f9a-0b1c-2d3e4f5a6b7c",
+      "name": "Save Analytics to Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1130,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$node[\"Loop Over Posts\"].context[\"noItemsLeft\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "a3b4c5d6-e7f8-9a0b-1c2d-3e4f5a6b7c8d",
+      "name": "Check If Complete",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=✅ SNS Data Collection Complete\\nTotal Posts: {{$node[\"Get All Posts from Postiz\"].json.length}}\\nCompleted at: {{$now.toFormat('yyyy-MM-dd HH:mm:ss')}}"
+            },
+            {
+              "name": "channel",
+              "value": "#kpi-notifications"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b4c5d6e7-f8a9-0b1c-2d3e-4f5a6b7c8d9e",
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1570,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=❌ SNS Data Collection Error\\nError: {{$json.error.message}}\\nNode: {{$json.node.name}}\\nTimestamp: {{$now.toFormat('yyyy-MM-dd HH:mm:ss')}}"
+            },
+            {
+              "name": "channel",
+              "value": "#kpi-alerts"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c5d6e7f8-a9b0-1c2d-3e4f-5a6b7c8d9e0f",
+      "name": "Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1130,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Cron Trigger - Daily Midnight": {
+      "main": [
+        [
+          {
+            "node": "Get All Posts from Postiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Posts from Postiz": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Posts": {
+      "main": [
+        [
+          {
+            "node": "Get Post Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Post Analytics": {
+      "main": [
+        [
+          {
+            "node": "Save Analytics to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Analytics to Database": {
+      "main": [
+        [
+          {
+            "node": "Check If Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Complete": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-01-15T00:00:00.000Z",
+      "updatedAt": "2025-01-15T00:00:00.000Z",
+      "id": "1",
+      "name": "sns"
+    },
+    {
+      "createdAt": "2025-01-15T00:00:00.000Z",
+      "updatedAt": "2025-01-15T00:00:00.000Z",
+      "id": "2",
+      "name": "data-collection"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1",
+  "triggerCount": 1,
+  "active": false
+}

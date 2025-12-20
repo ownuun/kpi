@@ -1,0 +1,52 @@
+{
+  "name": "agent-test-project",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "migrate:normalize": "tsx scripts/migrate-to-enums.ts",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate",
+    "worker": "tsx scripts/start-worker.ts",
+    "worker:dev": "tsx watch scripts/start-worker.ts"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@libsql/client": "^0.15.15",
+    "@prisma/adapter-libsql": "^7.2.0",
+    "@prisma/client": "^7.1.0",
+    "@react-email/components": "^1.0.1",
+    "@react-email/render": "^2.0.0",
+    "axios": "^1.13.2",
+    "bullmq": "^5.66.1",
+    "dotenv": "^17.2.3",
+    "ioredis": "^5.8.2",
+    "jsonwebtoken": "^9.0.3",
+    "next": "15.1.0",
+    "prisma": "^7.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.68.0",
+    "react-hot-toast": "^2.6.0",
+    "recharts": "^3.6.0",
+    "resend": "^6.6.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.23",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}

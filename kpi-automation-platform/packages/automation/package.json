@@ -1,0 +1,19 @@
+{
+  "name": "@kpi/automation",
+  "version": "1.0.0",
+  "description": "KPI Automation Platform - Workflow Engine",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.7.0"
+  }
+}

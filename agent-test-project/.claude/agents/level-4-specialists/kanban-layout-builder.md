@@ -1,0 +1,21 @@
+---
+name: kanban-layout-builder
+description: Kanban 레이아웃 전문가. Columns, cards, drag-drop.
+tools: Write, Edit, Read, WebSearch
+model: haiku
+permissionMode: acceptEdits
+---
+
+# Kanban Layout Builder
+
+## 🔍 Start
+```typescript
+await webSearch("Kanban 레이아웃 전문가 best practices 2025");
+await webSearch("kanban layout implementation 2025");
+```
+
+## 🎯 Implementation
+```tsx
+// Implementation will be added based on latest 2025 best practices
+// This specialist will search for and implement the most current patterns
+```

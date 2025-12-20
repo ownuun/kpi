@@ -1,0 +1,477 @@
+// This schema is based on Twenty CRM's Person/Contact entity
+// Reference: clones/twenty/packages/twenty-server/src/modules/person/
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  LOST
+}
+
+enum SocialPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ERROR
+  FAILED
+}
+
+enum SocialPlatform {
+  LINKEDIN
+  TWITTER
+  FACEBOOK
+  INSTAGRAM
+  YOUTUBE
+  TIKTOK
+  THREADS
+  BLUESKY
+}
+
+enum CampaignType {
+  EMAIL
+  SOCIAL
+  ADS
+  CONTENT
+  WEBINAR
+  EVENT
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  INACTIVE
+  PAUSED
+  ERROR
+}
+
+enum WorkflowTrigger {
+  LEAD_CREATED
+  EMAIL_OPENED
+  FORM_SUBMITTED
+  POST_PUBLISHED
+  CAMPAIGN_STARTED
+  SCHEDULE_BASED
+}
+
+enum EmailCampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+}
+
+enum EmailEventType {
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  BOUNCED
+  COMPLAINED
+  UNSUBSCRIBED
+}
+
+enum WorkflowExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+// Lead model based on Twenty CRM's Person entity
+model Lead {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Name fields (Twenty CRM uses FullName composite type)
+  firstName String
+  lastName  String
+
+  // Contact information (Twenty CRM uses Emails composite type)
+  email            String  @unique
+  additionalEmails String? // JSON array of additional emails
+
+  // Phone (Twenty CRM uses Phones composite type)
+  phone        String?
+  countryCode  String?
+
+  // Professional information
+  jobTitle String?
+  city     String?
+
+  // Social links (Twenty CRM uses Links composite type)
+  linkedinUrl String?
+  twitterUrl  String?
+
+  // Additional fields
+  avatarUrl String?
+  intro     String? // Introduction/bio
+
+  // Lead-specific fields
+  source String?     // Where the lead came from
+  status LeadStatus @default(NEW)
+
+  // Metadata
+  position Int @default(0) // For ordering (Twenty CRM pattern)
+
+  // Relations
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@index([source])
+  @@index([companyId])
+}
+
+// Company model (simplified from Twenty CRM)
+model Company {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name         String  @unique
+  domainUrl    String?
+  employees    Int?
+  linkedinUrl  String?
+  twitterUrl   String?
+  city         String?
+  industry     String?
+
+  // Financial
+  annualRevenue Decimal?
+
+  // Flags
+  isIdealCustomer Boolean @default(false)
+
+  position Int @default(0)
+
+  // Relations
+  leads Lead[]
+
+  @@index([name])
+  @@index([industry])
+}
+
+// Social Media Post model based on Postiz patterns
+model SocialPost {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Post content
+  content     String
+  title       String?
+  description String?
+
+  // Platform and status
+  platform SocialPlatform
+  status   SocialPostStatus @default(DRAFT)
+
+  // Scheduling
+  scheduledAt DateTime?
+  publishedAt DateTime?
+
+  // Media
+  imageUrl String?
+  videoUrl String?
+
+  // Analytics/Metrics (engagement tracking)
+  views    Int @default(0)
+  likes    Int @default(0)
+  shares   Int @default(0)
+  comments Int @default(0)
+  clicks   Int @default(0)
+
+  // Error handling
+  error      String?
+  errorCode  String?
+  retryCount Int     @default(0)
+
+  // Queue/External tracking
+  jobId          String? // BullMQ job ID
+  platformPostId String? // Platform's post ID (e.g., LinkedIn URN)
+  platformUrl    String? // Direct URL to the published post
+
+  // Additional settings (JSON string for platform-specific settings)
+  settings String? // JSON string for platform-specific options
+  mediaUrls String? // JSON array of media URLs
+
+  // Grouping (for multi-platform posts)
+  groupId String? // Posts with same groupId are posted together
+
+  // Relations
+  socialAccountId String?
+  socialAccount   SocialAccount? @relation(fields: [socialAccountId], references: [id])
+
+  @@index([status])
+  @@index([platform])
+  @@index([scheduledAt])
+  @@index([publishedAt])
+  @@index([groupId])
+  @@index([createdAt])
+  @@index([jobId])
+  @@index([socialAccountId])
+}
+
+// Marketing Campaign model
+model Campaign {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String
+  type        CampaignType
+  status      CampaignStatus @default(DRAFT)
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Decimal?
+
+  // Goals
+  targetLeads   Int?
+  targetRevenue Decimal?
+
+  // Metrics
+  leadsGenerated Int     @default(0)
+  revenue        Decimal @default(0)
+
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+}
+
+// Workflow Automation model
+model Workflow {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String
+  description String?
+  trigger     WorkflowTrigger
+  status      WorkflowStatus @default(INACTIVE)
+
+  // Configuration (JSON string for workflow steps)
+  config String? // JSON string for workflow configuration
+
+  // n8n Integration
+  n8nWorkflowId String? @unique
+  webhookUrl    String?
+
+  // Stats
+  executionCount Int       @default(0)
+  lastExecutedAt DateTime?
+
+  // Relations
+  executions WorkflowExecution[]
+
+  @@index([status])
+  @@index([trigger])
+  @@index([n8nWorkflowId])
+}
+
+// Email Campaign model
+model EmailCampaign {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subject     String
+  content     String
+  previewText String?
+
+  // Sender information
+  fromEmail    String  @default("noreply@example.com")
+  fromName     String  @default("Marketing Team")
+  replyToEmail String?
+
+  // Scheduling
+  scheduledAt DateTime?
+  sentAt      DateTime?
+
+  // Resend Integration
+  resendBatchId String?
+
+  // Metrics
+  recipientCount Int @default(0)
+  openedCount    Int @default(0)
+  clickedCount   Int @default(0)
+  bouncedCount   Int @default(0)
+  unsubscribed   Int @default(0)
+
+  // Status
+  status EmailCampaignStatus @default(DRAFT)
+
+  // Relations
+  campaignId String?
+  events     EmailEvent[]
+
+  @@index([status])
+  @@index([sentAt])
+  @@index([campaignId])
+  @@index([resendBatchId])
+  @@index([scheduledAt])
+}
+
+// OAuth Config model for storing OAuth app credentials
+model OAuthConfig {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Platform identification
+  platform SocialPlatform @unique
+
+  // OAuth credentials (encrypted in application layer)
+  clientId     String // AES-256-GCM encrypted
+  clientSecret String // AES-256-GCM encrypted
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Optional configuration (JSON for platform-specific settings)
+  config String? // JSON string for additional settings
+
+  @@index([platform])
+  @@index([isActive])
+}
+
+// Social Account model for OAuth token management
+model SocialAccount {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Platform and account identification
+  platform        SocialPlatform
+  platformId      String         // Platform-specific account ID
+  accountName     String         // Display name on the platform
+  accountHandle   String?        // Username/handle (e.g., @username)
+  accountPicture  String?        // Profile picture URL
+
+  // OAuth tokens (encrypted in application layer)
+  accessToken     String         // AES-256-GCM encrypted
+  refreshToken    String?        // AES-256-GCM encrypted
+  tokenExpiresAt  DateTime?      // When the access token expires
+
+  // User association (for multi-user support in future)
+  userId String @default("system") // For now, default to "system"
+
+  // Status
+  isActive    Boolean @default(true)
+  lastSyncedAt DateTime? // Last time we synced data from this account
+
+  // Error tracking
+  lastError     String?
+  lastErrorAt   DateTime?
+  retryCount    Int @default(0)
+
+  // Relations
+  posts SocialPost[]
+
+  @@unique([userId, platform, platformId]) // One account per platform per user
+  @@index([platform])
+  @@index([isActive])
+  @@index([userId])
+  @@index([tokenExpiresAt])
+}
+
+// Email Event model for Resend webhook tracking
+model EmailEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  type EmailEventType
+
+  // Email identifiers
+  emailId    String // Resend email ID
+  messageId  String?
+  recipient  String
+
+  // Event data
+  timestamp DateTime @default(now())
+  metadata  String? // JSON string for additional data
+
+  // Relations
+  emailCampaignId String?
+  emailCampaign   EmailCampaign? @relation(fields: [emailCampaignId], references: [id])
+
+  @@index([type])
+  @@index([emailId])
+  @@index([recipient])
+  @@index([emailCampaignId])
+  @@index([timestamp])
+}
+
+// Workflow Execution model for n8n execution logs
+model WorkflowExecution {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  status WorkflowExecutionStatus @default(PENDING)
+
+  // Execution details
+  startedAt   DateTime?
+  completedAt DateTime?
+  duration    Int? // Duration in milliseconds
+
+  // n8n integration
+  n8nExecutionId String? @unique
+
+  // Input/Output
+  input  String? // JSON string
+  output String? // JSON string
+  error  String?
+
+  // Relations
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
+
+  @@index([status])
+  @@index([workflowId])
+  @@index([n8nExecutionId])
+  @@index([createdAt])
+}
+
+// Email Config model for Resend API configuration
+model EmailConfig {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Resend API key (stored in plain text for now)
+  resendApiKey String
+
+  // Status
+  isActive Boolean @default(true)
+
+  @@index([isActive])
+}

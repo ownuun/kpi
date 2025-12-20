@@ -1,0 +1,345 @@
+{
+  "name": "Landing to Lead Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook/landing-form",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Webhook - Landing Form Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "landing-form-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\nconst payload = $input.first().json;\n\nconst extracted = {\n  firstName: payload.firstName || '',\n  lastName: payload.lastName || '',\n  email: payload.email || '',\n  phone: payload.phone || '',\n  company: payload.company || '',\n  utmSource: payload.utm_source || 'direct',\n  utmMedium: payload.utm_medium || 'none',\n  utmCampaign: payload.utm_campaign || 'none',\n  submittedAt: new Date().toISOString(),\n  ipAddress: $input.first().json.headers?.['x-forwarded-for'] || 'unknown'\n};\n\nitems.push({ json: extracted });\n\nreturn items;"
+      },
+      "id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+      "name": "Extract UTM Parameters",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        470,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TWENTY_API_URL}}/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.TWENTY_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "=mutation CreatePerson($data: PersonCreateInput!) {\n  createPerson(data: $data) {\n    id\n    name {\n      firstName\n      lastName\n    }\n    email\n    phone\n    company {\n      id\n      name\n    }\n  }\n}"
+            },
+            {
+              "name": "variables",
+              "value": "={\n  \"data\": {\n    \"name\": {\n      \"firstName\": \"{{$json.firstName}}\",\n      \"lastName\": \"{{$json.lastName}}\"\n    },\n    \"email\": \"{{$json.email}}\",\n    \"phone\": \"{{$json.phone}}\",\n    \"company\": {\n      \"connect\": {\n        \"name\": \"{{$json.company}}\"\n      }\n    }\n  }\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
+      "name": "Create Person in Twenty CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        690,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.DATABASE_API_URL}}/api/landing-visits",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "utmSource",
+              "value": "={{$node[\"Extract UTM Parameters\"].json.utmSource}}"
+            },
+            {
+              "name": "utmMedium",
+              "value": "={{$node[\"Extract UTM Parameters\"].json.utmMedium}}"
+            },
+            {
+              "name": "utmCampaign",
+              "value": "={{$node[\"Extract UTM Parameters\"].json.utmCampaign}}"
+            },
+            {
+              "name": "ipAddress",
+              "value": "={{$node[\"Extract UTM Parameters\"].json.ipAddress}}"
+            },
+            {
+              "name": "visitedAt",
+              "value": "={{$node[\"Extract UTM Parameters\"].json.submittedAt}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+      "name": "Save Landing Visit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        910,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TWENTY_API_URL}}/graphql",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.TWENTY_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "=mutation UpdatePerson($id: ID!, $data: PersonUpdateInput!) {\n  updatePerson(id: $id, data: $data) {\n    id\n    customFields {\n      landingVisitId\n      utmSource\n      utmMedium\n      utmCampaign\n    }\n  }\n}"
+            },
+            {
+              "name": "variables",
+              "value": "={\n  \"id\": \"{{$node[\"Create Person in Twenty CRM\"].json.data.createPerson.id}}\",\n  \"data\": {\n    \"customFields\": {\n      \"landingVisitId\": \"{{$node[\"Save Landing Visit\"].json.id}}\",\n      \"utmSource\": \"{{$node[\"Extract UTM Parameters\"].json.utmSource}}\",\n      \"utmMedium\": \"{{$node[\"Extract UTM Parameters\"].json.utmMedium}}\",\n      \"utmCampaign\": \"{{$node[\"Extract UTM Parameters\"].json.utmCampaign}}\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
+      "name": "Link Landing Visit to Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1130,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=🎉 New Lead from Landing Page!\\n\\n*Name:* {{$node[\"Extract UTM Parameters\"].json.firstName}} {{$node[\"Extract UTM Parameters\"].json.lastName}}\\n*Email:* {{$node[\"Extract UTM Parameters\"].json.email}}\\n*Company:* {{$node[\"Extract UTM Parameters\"].json.company}}\\n*Source:* {{$node[\"Extract UTM Parameters\"].json.utmSource}}\\n*Campaign:* {{$node[\"Extract UTM Parameters\"].json.utmCampaign}}\\n\\n<{{$env.TWENTY_CRM_URL}}/people/{{$node[\"Create Person in Twenty CRM\"].json.data.createPerson.id}}|View in CRM>"
+            },
+            {
+              "name": "channel",
+              "value": "#kpi-leads"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f6a7b8c9-d0e1-2f3a-4b5c-6d7e8f9a0b1c",
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Lead created successfully\",\n  \"leadId\": \"{{$node[\"Create Person in Twenty CRM\"].json.data.createPerson.id}}\"\n}",
+        "options": {}
+      },
+      "id": "a7b8c9d0-e1f2-3a4b-5c6d-7e8f9a0b1c2d",
+      "name": "Webhook Response - Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1570,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=❌ Landing to Lead Error\\n\\n*Error:* {{$json.error.message}}\\n*Node:* {{$json.node.name}}\\n*Email:* {{$node[\"Extract UTM Parameters\"].json.email}}\\n*Timestamp:* {{$now.toFormat('yyyy-MM-dd HH:mm:ss')}}"
+            },
+            {
+              "name": "channel",
+              "value": "#kpi-alerts"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b8c9d0e1-f2a3-4b5c-6d7e-8f9a0b1c2d3e",
+      "name": "Error Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1130,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"message\": \"Failed to create lead\",\n  \"error\": \"{{$json.error.message}}\"\n}",
+        "responseCode": 500,
+        "options": {}
+      },
+      "id": "c9d0e1f2-a3b4-5c6d-7e8f-9a0b1c2d3e4f",
+      "name": "Webhook Response - Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Landing Form Submit": {
+      "main": [
+        [
+          {
+            "node": "Extract UTM Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract UTM Parameters": {
+      "main": [
+        [
+          {
+            "node": "Create Person in Twenty CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Person in Twenty CRM": {
+      "main": [
+        [
+          {
+            "node": "Save Landing Visit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Landing Visit": {
+      "main": [
+        [
+          {
+            "node": "Link Landing Visit to Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link Landing Visit to Lead": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Slack Notification": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "any",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2025-01-15T00:00:00.000Z",
+      "updatedAt": "2025-01-15T00:00:00.000Z",
+      "id": "3",
+      "name": "landing"
+    },
+    {
+      "createdAt": "2025-01-15T00:00:00.000Z",
+      "updatedAt": "2025-01-15T00:00:00.000Z",
+      "id": "4",
+      "name": "lead-generation"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1",
+  "triggerCount": 1,
+  "active": false
+}

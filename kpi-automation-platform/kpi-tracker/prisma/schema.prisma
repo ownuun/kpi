@@ -1,0 +1,408 @@
+// KPI Tracker - Prisma Schema
+// 작성자: Person C
+// 작성일: 2024년
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Users & Authentication
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  posts          Post[]
+  leads          Lead[]
+  deals          Deal[]
+  socialAccounts SocialAccount[]
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+// ============================================
+// Business Lines
+// ============================================
+
+model BusinessLine {
+  id          String   @id @default(cuid())
+  name        String   @unique // "외주", "B2B", "ANYON"
+  description String?
+  landingUrl  String?
+  revenueGoal Int      @default(10000000) // 기본 목표: 1,000만원
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  posts          Post[]
+  videos         Video[]
+  emailCampaigns EmailCampaign[]
+  landingVisits  LandingVisit[]
+  leads          Lead[]
+  deals          Deal[]
+
+  @@map("business_lines")
+}
+
+// ============================================
+// Platforms
+// ============================================
+
+model Platform {
+  id     String       @id @default(cuid())
+  name   String       @unique // "LinkedIn", "Facebook", etc.
+  type   PlatformType
+  hasApi Boolean      @default(false)
+  icon   String?
+  color  String? // Hex color code
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  posts         Post[]
+  videos        Video[]
+  landingVisits LandingVisit[]
+
+  @@map("platforms")
+}
+
+enum PlatformType {
+  SNS
+  EMAIL
+  MARKETPLACE
+  OTHER
+}
+
+// ============================================
+// SNS Posts
+// ============================================
+
+model Post {
+  id             String       @id @default(cuid())
+  platformId     String
+  platform       Platform     @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  businessLineId String
+  businessLine   BusinessLine @relation(fields: [businessLineId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content     String    @db.Text
+  externalId  String? // 외부 플랫폼의 포스트 ID
+  publishedAt DateTime?
+  scheduledAt DateTime?
+
+  // Analytics
+  views        Int       @default(0)
+  likes        Int       @default(0)
+  comments     Int       @default(0)
+  shares       Int       @default(0)
+  lastSyncedAt DateTime? // 마지막 통계 수집 시간
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([platformId])
+  @@index([businessLineId])
+  @@index([publishedAt])
+  @@index([userId])
+  @@map("posts")
+}
+
+// ============================================
+// Videos
+// ============================================
+
+model Video {
+  id             String       @id @default(cuid())
+  platformId     String
+  platform       Platform     @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  businessLineId String
+  businessLine   BusinessLine @relation(fields: [businessLineId], references: [id], onDelete: Cascade)
+
+  title        String
+  description  String?  @db.Text
+  url          String
+  thumbnailUrl String?
+  externalId   String? // YouTube video ID, etc.
+
+  views    Int @default(0)
+  likes    Int @default(0)
+  comments Int @default(0)
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([platformId])
+  @@index([businessLineId])
+  @@map("videos")
+}
+
+// ============================================
+// Email Campaigns
+// ============================================
+
+model EmailCampaign {
+  id             String       @id @default(cuid())
+  businessLineId String
+  businessLine   BusinessLine @relation(fields: [businessLineId], references: [id], onDelete: Cascade)
+
+  name    String
+  subject String
+  content String @db.Text
+
+  sentCount  Int @default(0)
+  openCount  Int @default(0)
+  clickCount Int @default(0)
+  replyCount Int @default(0)
+
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([businessLineId])
+  @@map("email_campaigns")
+}
+
+// ============================================
+// Landing Page Visits
+// ============================================
+
+model LandingVisit {
+  id             String        @id @default(cuid())
+  businessLineId String?
+  businessLine   BusinessLine? @relation(fields: [businessLineId], references: [id], onDelete: SetNull)
+  platformId     String?
+  platform       Platform?     @relation(fields: [platformId], references: [id], onDelete: SetNull)
+
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+
+  ipAddress String?
+  userAgent String? @db.Text
+
+  visitedAt DateTime @default(now())
+
+  @@index([businessLineId])
+  @@index([platformId])
+  @@index([visitedAt])
+  @@map("landing_visits")
+}
+
+// ============================================
+// Leads
+// ============================================
+
+model Lead {
+  id             String       @id @default(cuid())
+  businessLineId String
+  businessLine   BusinessLine @relation(fields: [businessLineId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Contact Info
+  name    String
+  email   String
+  phone   String?
+  company String?
+  industry String?
+
+  // Source (UTM)
+  source   String? // UTM source
+  medium   String? // UTM medium
+  campaign String? // UTM campaign
+
+  // Status
+  status LeadStatus @default(NEW)
+
+  // Notes
+  notes String? @db.Text
+
+  // Relations
+  meetings Meeting[]
+  deals    Deal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessLineId])
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  MEETING_SCHEDULED
+  MEETING_COMPLETED
+  PROPOSAL_SENT
+  NEGOTIATING
+  WON
+  LOST
+}
+
+// ============================================
+// Meetings
+// ============================================
+
+model Meeting {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  title       String
+  scheduledAt DateTime
+  duration    Int      @default(60) // 분 단위
+  location    String?
+  notes       String?  @db.Text
+
+  googleCalendarEventId String?   @unique
+
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([scheduledAt])
+  @@map("meetings")
+}
+
+// ============================================
+// Deals
+// ============================================
+
+model Deal {
+  id             String       @id @default(cuid())
+  leadId         String
+  lead           Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  businessLineId String
+  businessLine   BusinessLine @relation(fields: [businessLineId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  title       String
+  amount      Int // 금액 (원)
+  probability Int @default(50) // 성사 확률 (%)
+
+  status DealStatus @default(PROPOSAL)
+
+  contractedAt    DateTime?
+  expectedCloseAt DateTime?
+
+  // Payment
+  paidAmount Int       @default(0)
+  paidAt     DateTime?
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([businessLineId])
+  @@index([status])
+  @@index([contractedAt])
+  @@map("deals")
+}
+
+enum DealStatus {
+  PROPOSAL
+  NEGOTIATING
+  WON
+  LOST
+  PAID
+}
+
+// ============================================
+// Subscriptions (ANYON B2C)
+// ============================================
+
+model Subscription {
+  id        String             @id @default(cuid())
+  userEmail String
+  plan      SubscriptionPlan
+  status    SubscriptionStatus @default(ACTIVE)
+
+  amount Int // 월 구독료
+
+  startedAt  DateTime  @default(now())
+  canceledAt DateTime?
+  expiresAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userEmail])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+}
+
+// ============================================
+// Social Accounts (SNS 계정 연결)
+// ============================================
+
+model SocialAccount {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  platform    String // "LINKEDIN", "TWITTER", "FACEBOOK", "INSTAGRAM", "THREADS"
+  accountName String // 계정 이름/표시명
+  accountId   String // 플랫폼의 고유 ID
+
+  // Postiz Integration
+  postizIntegrationId String // Postiz에서 발급한 integration ID
+
+  // Token 정보 (암호화 저장 권장)
+  accessToken  String?  @db.Text
+  refreshToken String?  @db.Text
+  expiresAt    DateTime?
+
+  // 계정 설정
+  isPrimary Boolean @default(false) // 해당 플랫폼의 기본 계정 여부
+  isActive  Boolean @default(true) // 계정 활성화 여부
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, platform, accountId])
+  @@index([userId])
+  @@index([platform])
+  @@map("social_accounts")
+}

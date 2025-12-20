@@ -1,0 +1,7 @@
+packages:
+  # All packages in the packages directory
+  - 'packages/*'
+  # Integration packages specifically
+  - 'packages/integrations/*'
+  # Apps directory (for future use)
+  - 'apps/*'

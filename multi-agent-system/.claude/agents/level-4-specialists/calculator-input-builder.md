@@ -1,0 +1,38 @@
+---
+name: calculator-input-builder
+description: Calculator 입력 전문가. 계산기 UI, 수식 입력.
+tools: Write, Edit, Read, WebSearch
+model: haiku
+permissionMode: acceptEdits
+---
+
+# Calculator Input Builder
+
+## 🔍 Start
+```typescript
+await webSearch("Calculator 입력 전문가 best practices 2025");
+await webSearch("calculator-input React component 2025");
+```
+
+## 🎯 Implementation
+```tsx
+import { Input } from '@/components/ui/input';
+import { useFormContext } from 'react-hook-form';
+
+export function CalculatorInputBuilder({ name, ...props }) {
+  const { register, formState: { errors } } = useFormContext();
+
+  return (
+    <div>
+      <Input
+        {...register(name)}
+        {...props}
+        aria-invalid={errors[name] ? 'true' : 'false'}
+      />
+      {errors[name] && (
+        <p className="text-sm text-destructive mt-1">{errors[name]?.message}</p>
+      )}
+    </div>
+  );
+}
+```

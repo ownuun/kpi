@@ -1,0 +1,460 @@
+// KPI Automation Platform Database Schema
+// Extended from agent-test-project schema
+// Includes models for multi-business-line KPI tracking
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE USER & BUSINESS MODELS
+// ============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Authentication
+  email    String  @unique
+  password String? // Hashed password (nullable for OAuth users)
+
+  // Profile
+  firstName String
+  lastName  String
+  avatarUrl String?
+
+  // Role & Permissions
+  role   String @default("user") // admin, manager, user, viewer
+  status String @default("active") // active, inactive, suspended
+
+  // Relations
+  meetings      Meeting[]
+  deals         Deal[]
+  emailCampaigns EmailCampaign[]
+  posts         Post[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model BusinessLine {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Business Line Info
+  name        String  @unique // "외주", "B2B", "ANYON"
+  displayName String // Display name for UI
+  description String?
+  color       String? // For UI visualization
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Relations
+  platforms Platform[]
+  leads     Lead[]
+  meetings  Meeting[]
+  deals     Deal[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Platform {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Platform Info
+  name         String // "LinkedIn", "Facebook", "Instagram", etc.
+  type         String // "social", "email", "ads", "landing"
+  isActive     Boolean @default(true)
+
+  // Configuration (JSON string for platform-specific settings)
+  config String? // API keys, credentials, etc.
+
+  // Relations
+  businessLineId String
+  businessLine   BusinessLine @relation(fields: [businessLineId], references: [id], onDelete: Cascade)
+
+  posts          Post[]
+  landingVisits  LandingVisit[]
+
+  @@index([businessLineId])
+  @@index([type])
+  @@index([isActive])
+}
+
+// ============================================================================
+// MARKETING & CONTENT MODELS
+// ============================================================================
+
+model Post {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Post content
+  content     String
+  title       String?
+  description String?
+
+  // Platform and status
+  platformId String
+  platform   Platform @relation(fields: [platformId], references: [id], onDelete: Cascade)
+
+  status String @default("draft") // draft, scheduled, published, error
+
+  // Scheduling
+  scheduledAt DateTime?
+  publishedAt DateTime?
+
+  // Media
+  imageUrl String?
+  videoUrl String?
+
+  // Analytics/Metrics (engagement tracking)
+  views    Int @default(0)
+  likes    Int @default(0)
+  shares   Int @default(0)
+  comments Int @default(0)
+  clicks   Int @default(0)
+
+  // Error handling
+  error String?
+
+  // Additional settings (JSON string for platform-specific settings)
+  settings String? // JSON string for platform-specific options
+
+  // Grouping (for multi-platform posts)
+  groupId String? // Posts with same groupId are posted together
+
+  // Author
+  authorId String?
+  author   User?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([platformId])
+  @@index([scheduledAt])
+  @@index([publishedAt])
+  @@index([groupId])
+  @@index([createdAt])
+  @@index([authorId])
+}
+
+model EmailCampaign {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subject     String
+  content     String
+  previewText String?
+  sentAt      DateTime?
+
+  // Metrics
+  recipientCount Int @default(0)
+  openedCount    Int @default(0)
+  clickedCount   Int @default(0)
+  bouncedCount   Int @default(0)
+  unsubscribed   Int @default(0)
+
+  // Status
+  status String @default("draft") // draft, scheduled, sending, sent
+
+  // Relations
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  authorId   String?
+  author     User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([sentAt])
+  @@index([campaignId])
+  @@index([authorId])
+}
+
+model LandingVisit {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Visitor Info
+  visitorId  String? // Anonymous visitor ID (cookie-based)
+  ipAddress  String?
+  userAgent  String?
+
+  // Visit Details
+  pageUrl     String
+  referrerUrl String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+
+  // Timing
+  duration Int? // Time spent on page in seconds
+  exitedAt DateTime?
+
+  // Conversion
+  converted   Boolean @default(false)
+  leadId      String?
+  lead        Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Platform tracking
+  platformId String?
+  platform   Platform? @relation(fields: [platformId], references: [id], onDelete: SetNull)
+
+  @@index([visitorId])
+  @@index([converted])
+  @@index([leadId])
+  @@index([platformId])
+  @@index([createdAt])
+  @@index([utmSource])
+  @@index([utmCampaign])
+}
+
+// ============================================================================
+// SALES & CRM MODELS
+// ============================================================================
+
+model Lead {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Name fields (Twenty CRM uses FullName composite type)
+  firstName String
+  lastName  String
+
+  // Contact information (Twenty CRM uses Emails composite type)
+  email            String  @unique
+  additionalEmails String? // JSON array of additional emails
+
+  // Phone (Twenty CRM uses Phones composite type)
+  phone       String?
+  countryCode String?
+
+  // Professional information
+  jobTitle String?
+  company  String?
+  city     String?
+
+  // Social links (Twenty CRM uses Links composite type)
+  linkedinUrl String?
+  twitterUrl  String?
+
+  // Additional fields
+  avatarUrl String?
+  intro     String? // Introduction/bio
+
+  // Lead-specific fields
+  source String? // Where the lead came from
+  status String @default("new") // new, contacted, qualified, converted, lost
+
+  // Business Line
+  businessLineId String?
+  businessLine   BusinessLine? @relation(fields: [businessLineId], references: [id], onDelete: SetNull)
+
+  // Metadata
+  position Int @default(0) // For ordering (Twenty CRM pattern)
+
+  // Relations
+  landingVisits LandingVisit[]
+  meetings      Meeting[]
+  deals         Deal[]
+
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
+  @@index([businessLineId])
+  @@index([source])
+}
+
+model Meeting {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Meeting Details
+  title       String
+  description String?
+  location    String? // Physical location or meeting URL
+  meetingUrl  String? // Zoom, Google Meet, etc.
+
+  // Timing
+  startTime DateTime
+  endTime   DateTime
+  duration  Int? // Duration in minutes
+
+  // Status
+  status String @default("scheduled") // scheduled, completed, cancelled, no-show
+
+  // Type
+  meetingType String? // discovery, demo, proposal, closing, follow-up
+
+  // Participants
+  leadId String?
+  lead   Lead?  @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Business Line
+  businessLineId String?
+  businessLine   BusinessLine? @relation(fields: [businessLineId], references: [id], onDelete: SetNull)
+
+  // Notes
+  notes  String?
+  outcome String? // positive, negative, neutral
+
+  // Next steps
+  followUpRequired Boolean @default(false)
+  nextMeetingDate  DateTime?
+
+  @@index([status])
+  @@index([startTime])
+  @@index([leadId])
+  @@index([userId])
+  @@index([businessLineId])
+  @@index([meetingType])
+}
+
+model Deal {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Deal Info
+  title       String
+  description String?
+
+  // Financial
+  amount      Decimal
+  currency    String  @default("KRW")
+  probability Int     @default(50) // 0-100, probability of closing
+
+  // Status & Stage
+  status String @default("open") // open, won, lost, abandoned
+  stage  String @default("qualification") // qualification, proposal, negotiation, closing
+
+  // Timing
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+
+  // Relations
+  leadId String?
+  lead   Lead?  @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  ownerId String?
+  owner   User?  @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  businessLineId String?
+  businessLine   BusinessLine? @relation(fields: [businessLineId], references: [id], onDelete: SetNull)
+
+  // Source tracking
+  source     String? // Where the deal originated
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  // Notes
+  notes String?
+  lostReason String? // Reason if deal is lost
+
+  @@index([status])
+  @@index([stage])
+  @@index([leadId])
+  @@index([ownerId])
+  @@index([businessLineId])
+  @@index([campaignId])
+  @@index([expectedCloseDate])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// EXISTING MODELS FROM AGENT-TEST-PROJECT
+// ============================================================================
+
+model Company {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String  @unique
+  domainUrl   String?
+  employees   Int?
+  linkedinUrl String?
+  twitterUrl  String?
+  city        String?
+  industry    String?
+
+  // Financial
+  annualRevenue Decimal?
+
+  // Flags
+  isIdealCustomer Boolean @default(false)
+
+  position Int @default(0)
+
+  @@index([name])
+}
+
+model Campaign {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name      String
+  type      String // email, social, ads, content
+  status    String   @default("draft") // draft, active, paused, completed
+  startDate DateTime?
+  endDate   DateTime?
+  budget    Decimal?
+
+  // Goals
+  targetLeads   Int?
+  targetRevenue Decimal?
+
+  // Metrics
+  leadsGenerated Int     @default(0)
+  revenue        Decimal @default(0)
+
+  // Relations
+  emailCampaigns EmailCampaign[]
+  deals          Deal[]
+
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+}
+
+model Workflow {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name        String
+  description String?
+  trigger     String // lead_created, email_opened, form_submitted, post_published
+  status      String @default("inactive") // active, inactive, paused
+
+  // Configuration (JSON string for workflow steps)
+  config String? // JSON string for workflow configuration
+
+  // Stats
+  executionCount Int       @default(0)
+  lastExecutedAt DateTime?
+
+  @@index([status])
+  @@index([trigger])
+}

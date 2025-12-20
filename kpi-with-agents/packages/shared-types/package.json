@@ -1,0 +1,24 @@
+{
+  "name": "@kpi/shared-types",
+  "version": "0.1.0",
+  "description": "Shared TypeScript types for KPI automation platform",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api/index.ts",
+    "./entities": "./src/entities/index.ts",
+    "./integrations": "./src/integrations/index.ts",
+    "./utils": "./src/utils/index.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0"
+  }
+}

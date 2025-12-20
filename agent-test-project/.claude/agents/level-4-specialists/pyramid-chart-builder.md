@@ -1,0 +1,21 @@
+---
+name: pyramid-chart-builder
+description: Pyramid Chart 전문가. Age pyramid, demographics.
+tools: Write, Edit, Read, WebSearch
+model: haiku
+permissionMode: acceptEdits
+---
+
+# Pyramid Chart Builder
+
+## 🔍 Start
+```typescript
+await webSearch("Pyramid Chart 전문가 best practices 2025");
+await webSearch("pyramid chart implementation 2025");
+```
+
+## 🎯 Implementation
+```tsx
+// Implementation will be added based on latest 2025 best practices
+// This specialist will search for and implement the most current patterns
+```
