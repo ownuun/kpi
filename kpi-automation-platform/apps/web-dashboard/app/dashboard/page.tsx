@@ -71,28 +71,36 @@ export default function DashboardPage() {
 
       {/* Business Line Quick Access */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {businessLineCards.map((line) => (
-          <Link key={line.name} href={line.path}>
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-lg ${line.color} text-white`}>
-                      {line.icon}
+        {businessLines && businessLines.filter((line: any) => line.isActive).map((line: any) => {
+          const icons: { [key: string]: JSX.Element } = {
+            outsourcing: <BriefcaseBusiness className="h-6 w-6" />,
+            b2b: <Building2 className="h-6 w-6" />,
+            anyon: <Sparkles className="h-6 w-6" />,
+          }
+          
+          return (
+            <Link key={line.id} href={`/dashboard/${line.name.toLowerCase()}`}>
+              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 rounded-lg text-white" style={{ backgroundColor: line.color || '#6b7280' }}>
+                        {icons[line.name.toLowerCase()] || <Building2 className="h-6 w-6" />}
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">{line.displayName}</CardTitle>
+                        <p className="text-sm text-gray-600">{line.name}</p>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-lg">{line.displayName}</CardTitle>
-                      <p className="text-sm text-gray-600">{line.name}</p>
-                    </div>
+                    <Button variant="ghost" size="sm">
+                      {t('상세 보기', 'View Details')}
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    {t('상세 보기', 'View Details')}
-                  </Button>
-                </div>
-              </CardHeader>
-            </Card>
-          </Link>
-        ))}
+                </CardHeader>
+              </Card>
+            </Link>
+          )
+        })}
       </div>
 
       {/* Key Metrics */}

@@ -39,6 +39,8 @@ export default function CampaignDetailPage({
   const [deleting, setDeleting] = useState(false);
   const [sending, setSending] = useState(false);
   const [showHtmlPreview, setShowHtmlPreview] = useState(false);
+  const [showSendDialog, setShowSendDialog] = useState(false);
+  const [recipientsInput, setRecipientsInput] = useState('');
 
   useEffect(() => {
     fetchCampaign();
@@ -62,7 +64,26 @@ export default function CampaignDetailPage({
   };
 
   const handleSendCampaign = async () => {
-    if (!confirm('Are you sure you want to send this campaign? This action cannot be undone.')) {
+    // Validate recipients input
+    const recipientsList = recipientsInput
+      .split(',')
+      .map(email => email.trim())
+      .filter(email => email.length > 0);
+
+    if (recipientsList.length === 0) {
+      toast.error('Please enter at least one recipient email');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalidEmails = recipientsList.filter(email => !emailRegex.test(email));
+    if (invalidEmails.length > 0) {
+      toast.error(`Invalid email addresses: ${invalidEmails.join(', ')}`);
+      return;
+    }
+
+    if (!confirm(`Send this campaign to ${recipientsList.length} recipient(s)? This action cannot be undone.`)) {
       return;
     }
 
@@ -72,6 +93,14 @@ export default function CampaignDetailPage({
 
       const response = await fetch(`/api/email/campaigns/${id}/send`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipients: recipientsList,
+          sendNow: true,
+          useQueue: true,
+        }),
       });
 
       const data = await response.json();
@@ -81,6 +110,8 @@ export default function CampaignDetailPage({
       }
 
       toast.success(data.message || 'Campaign sent successfully!');
+      setShowSendDialog(false);
+      setRecipientsInput('');
       await fetchCampaign();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
@@ -175,6 +206,62 @@ export default function CampaignDetailPage({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Send Campaign Dialog */}
+      {showSendDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Send Email Campaign</h2>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Recipients (comma-separated email addresses)
+              </label>
+              <textarea
+                value={recipientsInput}
+                onChange={(e) => setRecipientsInput(e.target.value)}
+                placeholder="user1@example.com, user2@example.com, user3@example.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                rows={4}
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                Enter email addresses separated by commas. Maximum 1000 recipients per send.
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-blue-900 mb-2">Campaign Preview:</h3>
+              <div className="text-sm text-blue-800 space-y-1">
+                <p><span className="font-medium">Subject:</span> {campaign.subject}</p>
+                <p><span className="font-medium">From:</span> {campaign.fromName} &lt;{campaign.fromEmail}&gt;</p>
+                {campaign.replyToEmail && (
+                  <p><span className="font-medium">Reply-To:</span> {campaign.replyToEmail}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowSendDialog(false);
+                  setRecipientsInput('');
+                }}
+                disabled={sending}
+                className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendCampaign}
+                disabled={sending || !recipientsInput.trim()}
+                className="px-6 py-2 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400"
+              >
+                {sending ? 'Sending...' : 'Send Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-4">
@@ -187,18 +274,15 @@ export default function CampaignDetailPage({
           <div className="flex gap-3">
             {campaign.status === 'DRAFT' && (
               <button
-                onClick={handleSendCampaign}
-                disabled={sending || campaign.recipientCount === 0}
+                onClick={() => setShowSendDialog(true)}
+                disabled={sending}
                 className={`px-4 py-2 text-white font-medium rounded-md transition-colors ${
                   sending
                     ? 'bg-yellow-500 cursor-wait'
-                    : campaign.recipientCount === 0
-                    ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700'
                 }`}
-                title={campaign.recipientCount === 0 ? 'No recipients added' : 'Send campaign now'}
               >
-                {sending ? 'Sending...' : 'Send Now'}
+                {sending ? 'Sending...' : 'Send Campaign'}
               </button>
             )}
             <button

@@ -15,11 +15,12 @@ const UpdateCampaignSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const campaign = await prisma.emailCampaign.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         events: {
           orderBy: { timestamp: 'desc' },
@@ -47,14 +48,15 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const validated = UpdateCampaignSchema.parse(body);
 
     const existingCampaign = await prisma.emailCampaign.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!existingCampaign) {
@@ -71,7 +73,7 @@ export async function PATCH(
     }
 
     const campaign = await prisma.emailCampaign.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData
     });
 
@@ -93,11 +95,12 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const existingCampaign = await prisma.emailCampaign.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!existingCampaign) {
@@ -108,7 +111,7 @@ export async function DELETE(
     }
 
     await prisma.emailCampaign.delete({
-      where: { id: params.id }
+      where: { id }
     });
 
     return NextResponse.json(

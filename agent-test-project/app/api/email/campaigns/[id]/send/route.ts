@@ -10,14 +10,15 @@ const SendCampaignSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const validated = SendCampaignSchema.parse(body);
 
     const campaign = await prisma.emailCampaign.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!campaign) {
@@ -36,7 +37,7 @@ export async function POST(
 
     // Update campaign status to SENDING
     const updatedCampaign = await prisma.emailCampaign.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: validated.sendNow ? 'SENDING' : 'SCHEDULED',
         recipientCount: validated.recipients.length,
@@ -50,7 +51,7 @@ export async function POST(
       const { queueBulkEmails } = await import('@/lib/queue/email-queue');
       
       await queueBulkEmails({
-        campaignId: params.id,
+        campaignId: id,
         recipients: validated.recipients,
       });
 
@@ -66,7 +67,7 @@ export async function POST(
       const { sendCampaignEmails } = await import('@/lib/email/send');
       
       const sendResult = await sendCampaignEmails(
-        params.id,
+        id,
         validated.recipients
       );
 
@@ -76,7 +77,7 @@ export async function POST(
 
       // Update campaign to SENT status
       const finalCampaign = await prisma.emailCampaign.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           status: 'SENT',
           sentAt: new Date(),
@@ -104,8 +105,9 @@ export async function POST(
 
     // Update campaign status to FAILED
     try {
+      const { id: campaignId } = await params;
       await prisma.emailCampaign.update({
-        where: { id: params.id },
+        where: { id: campaignId },
         data: { status: 'FAILED' }
       });
     } catch (updateError) {

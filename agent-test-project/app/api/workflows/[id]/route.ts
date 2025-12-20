@@ -10,13 +10,14 @@ import { z } from 'zod';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const includeExecutions = request.nextUrl.searchParams.get('includeExecutions') === 'true';
 
     const workflow = await prisma.workflow.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: includeExecutions ? {
         executions: {
           orderBy: { createdAt: 'desc' },
@@ -48,14 +49,15 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const validated = WorkflowUpdateSchema.parse(body);
 
     const existing = await prisma.workflow.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -88,7 +90,7 @@ export async function PATCH(
     }
 
     const workflow = await prisma.workflow.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(validated.name && { name: validated.name }),
         ...(validated.description !== undefined && { description: validated.description }),
@@ -124,11 +126,12 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const workflow = await prisma.workflow.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { executions: true },
@@ -154,12 +157,12 @@ export async function DELETE(
     }
 
     await prisma.workflow.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({
       message: 'Workflow deleted successfully',
-      id: params.id,
+      id,
       deletedExecutions: workflow._count.executions,
     });
   } catch (error) {

@@ -13,14 +13,15 @@ import { z } from 'zod';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const validated = WorkflowExecuteSchema.parse(body);
 
     const workflow = await prisma.workflow.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!workflow) {
@@ -40,7 +41,7 @@ export async function POST(
     // Create execution record
     const execution = await prisma.workflowExecution.create({
       data: {
-        workflowId: params.id,
+        workflowId: id,
         status: 'PENDING',
         input: validated.input ? JSON.stringify(validated.input) : null,
         startedAt: new Date(),
@@ -66,7 +67,7 @@ export async function POST(
 
         // Update workflow stats
         await prisma.workflow.update({
-          where: { id: params.id },
+          where: { id },
           data: {
             executionCount: { increment: 1 },
             lastExecutedAt: new Date(),
@@ -113,7 +114,7 @@ export async function POST(
 
       // Update workflow stats
       await prisma.workflow.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           executionCount: { increment: 1 },
           lastExecutedAt: new Date(),

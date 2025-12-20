@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n/context';
 import BackButton from '@/components/BackButton';
@@ -24,8 +23,12 @@ interface Lead {
   updatedAt: string;
 }
 
-export default function LeadDetailPage() {
-  const params = useParams();
+export default function LeadDetailPage({
+  params
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = use(params);
   const { t } = useI18n();
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +38,7 @@ export default function LeadDetailPage() {
     const fetchLead = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/leads/${params.id}`);
+        const response = await fetch(`/api/leads/${id}`);
         if (!response.ok) {
           throw new Error('Failed to fetch lead');
         }
@@ -49,10 +52,8 @@ export default function LeadDetailPage() {
       }
     };
 
-    if (params.id) {
-      fetchLead();
-    }
-  }, [params.id]);
+    fetchLead();
+  }, [id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -113,7 +114,7 @@ export default function LeadDetailPage() {
           </div>
           <div className="flex gap-3">
             <Link
-              href={`/leads/${lead.id}/edit`}
+              href={`/leads/${id}/edit`}
               className="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
             >
               Edit
@@ -247,7 +248,7 @@ export default function LeadDetailPage() {
                 Create Task
               </button>
               <Link
-                href={`/leads/${lead.id}/edit`}
+                href={`/leads/${id}/edit`}
                 className="block w-full px-4 py-2 bg-gray-600 text-white font-medium rounded-md hover:bg-gray-700 transition-colors text-center"
               >
                 Edit Lead

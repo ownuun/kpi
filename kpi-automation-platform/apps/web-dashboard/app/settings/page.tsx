@@ -11,8 +11,10 @@ import {
   Globe,
   Zap,
   Save,
-  Check
+  Check,
+  Building2
 } from 'lucide-react'
+import Link from 'next/link'
 
 export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
@@ -199,6 +201,26 @@ export default function SettingsPage() {
                   <div className="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
               </div>
+            </div>
+          </div>
+
+          {/* 비즈니스 라인 관리 */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+              <Building2 className="w-5 h-5 text-gray-600" />
+              <h2 className="text-xl font-bold text-gray-900">비즈니스 라인</h2>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">
+                사업 부문을 추가하거나 제거하고, 각 라인별 대시보드를 관리합니다
+              </p>
+              <Link
+                href="/settings/business-lines"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+              >
+                <Building2 className="w-4 h-4" />
+                비즈니스 라인 관리
+              </Link>
             </div>
           </div>
 

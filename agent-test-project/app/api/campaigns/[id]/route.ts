@@ -9,11 +9,12 @@ import { z } from 'zod';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const campaign = await prisma.campaign.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!campaign) {
@@ -39,14 +40,15 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const validated = CampaignUpdateSchema.parse(body);
 
     const existing = await prisma.campaign.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -72,7 +74,7 @@ export async function PATCH(
     }
 
     const campaign = await prisma.campaign.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(validated.name && { name: validated.name }),
         ...(validated.type && { type: validated.type }),
@@ -111,11 +113,12 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const campaign = await prisma.campaign.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!campaign) {
@@ -126,12 +129,12 @@ export async function DELETE(
     }
 
     await prisma.campaign.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({
       message: 'Campaign deleted successfully',
-      id: params.id,
+      id,
     });
   } catch (error) {
     console.error('Error deleting campaign:', error);

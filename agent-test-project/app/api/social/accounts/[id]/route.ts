@@ -13,14 +13,15 @@ import { z } from 'zod';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const includeToken = request.nextUrl.searchParams.get('includeToken') === 'true';
     const includePosts = request.nextUrl.searchParams.get('includePosts') === 'true';
 
     const account = await prisma.socialAccount.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: includePosts ? {
         posts: {
           orderBy: { createdAt: 'desc' },
@@ -78,14 +79,15 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const validated = SocialAccountUpdateSchema.parse(body);
 
     const existing = await prisma.socialAccount.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -131,7 +133,7 @@ export async function PATCH(
     }
 
     const account = await prisma.socialAccount.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 
@@ -164,11 +166,12 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const account = await prisma.socialAccount.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { posts: true },
@@ -184,12 +187,12 @@ export async function DELETE(
     }
 
     await prisma.socialAccount.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({
       message: 'Social account deleted successfully',
-      id: params.id,
+      id,
       deletedPosts: account._count.posts,
     });
   } catch (error) {

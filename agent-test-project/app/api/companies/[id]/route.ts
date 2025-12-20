@@ -9,13 +9,14 @@ import { z } from 'zod';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const includeLeads = request.nextUrl.searchParams.get('includeLeads') === 'true';
 
     const company = await prisma.company.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: includeLeads ? {
         leads: {
           orderBy: { createdAt: 'desc' },
@@ -46,15 +47,16 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const validated = CompanyUpdateSchema.parse(body);
 
     // Check if company exists
     const existing = await prisma.company.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existing) {
@@ -79,7 +81,7 @@ export async function PATCH(
     }
 
     const company = await prisma.company.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(validated.name && { name: validated.name }),
         ...(validated.domainUrl !== undefined && { domainUrl: validated.domainUrl }),
@@ -118,12 +120,13 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Check if company exists
     const company = await prisma.company.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         _count: {
           select: { leads: true },
@@ -150,12 +153,12 @@ export async function DELETE(
     }
 
     await prisma.company.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({
       message: 'Company deleted successfully',
-      id: params.id,
+      id,
     });
   } catch (error) {
     console.error('Error deleting company:', error);
